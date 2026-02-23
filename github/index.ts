@@ -720,7 +720,7 @@ async function pushToNewBranch(summary: string, branch: string) {
   const actor = useContext().actor
 
   await $`git add .`
-  const msgFile1 = path.join(tmpdir(), `opencode-commit-${Date.now()}.txt`)
+  const msgFile1 = path.join(tmpdir(), `opencode-commit-${crypto.randomUUID()}.txt`)
   await writeFile(msgFile1, `${summary}\n\nCo-authored-by: ${actor} <${actor}@users.noreply.github.com>`)
   try {
     await $`git commit -F ${msgFile1}`
@@ -735,7 +735,7 @@ async function pushToLocalBranch(summary: string) {
   const actor = useContext().actor
 
   await $`git add .`
-  const msgFile2 = path.join(tmpdir(), `opencode-commit-${Date.now()}.txt`)
+  const msgFile2 = path.join(tmpdir(), `opencode-commit-${crypto.randomUUID()}.txt`)
   await writeFile(msgFile2, `${summary}\n\nCo-authored-by: ${actor} <${actor}@users.noreply.github.com>`)
   try {
     await $`git commit -F ${msgFile2}`
@@ -752,7 +752,7 @@ async function pushToForkBranch(summary: string, pr: GitHubPullRequest) {
   const remoteBranch = pr.headRefName
 
   await $`git add .`
-  const msgFile3 = path.join(tmpdir(), `opencode-commit-${Date.now()}.txt`)
+  const msgFile3 = path.join(tmpdir(), `opencode-commit-${crypto.randomUUID()}.txt`)
   await writeFile(msgFile3, `${summary}\n\nCo-authored-by: ${actor} <${actor}@users.noreply.github.com>`)
   try {
     await $`git commit -F ${msgFile3}`

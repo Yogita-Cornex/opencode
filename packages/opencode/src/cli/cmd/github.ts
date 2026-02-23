@@ -1,5 +1,7 @@
 import path from "path"
 import { exec } from "child_process"
+import { tmpdir } from "os"
+import { writeFile, unlink } from "fs/promises"
 import { Filesystem } from "../../util/filesystem"
 import * as prompts from "@clack/prompts"
 import { map, pipe, sortBy, values } from "remeda"
@@ -1115,13 +1117,15 @@ export const GithubRunCommand = cmd({
         console.log("Pushing to new branch...")
         if (commit) {
           await $`git add .`
-          if (isSchedule) {
-            // No co-author for scheduled events - the schedule is operating as the repo
-            await $`git commit -m "${summary}"`
-          } else {
-            await $`git commit -m "${summary}
-
-Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
+          const msgFile1 = path.join(tmpdir(), `opencode-commit-${crypto.randomUUID()}.txt`)
+          const msgBody1 = isSchedule
+            ? summary
+            : `${summary}\n\nCo-authored-by: ${actor} <${actor}@users.noreply.github.com>`
+          await writeFile(msgFile1, msgBody1)
+          try {
+            await $`git commit -F ${msgFile1}`
+          } finally {
+            await unlink(msgFile1).catch(() => {})
           }
         }
         await $`git push -u origin ${branch}`
@@ -1131,9 +1135,13 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
         console.log("Pushing to local branch...")
         if (commit) {
           await $`git add .`
-          await $`git commit -m "${summary}
-
-Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
+          const msgFile2 = path.join(tmpdir(), `opencode-commit-${crypto.randomUUID()}.txt`)
+          await writeFile(msgFile2, `${summary}\n\nCo-authored-by: ${actor} <${actor}@users.noreply.github.com>`)
+          try {
+            await $`git commit -F ${msgFile2}`
+          } finally {
+            await unlink(msgFile2).catch(() => {})
+          }
         }
         await $`git push`
       }
@@ -1145,9 +1153,13 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
 
         if (commit) {
           await $`git add .`
-          await $`git commit -m "${summary}
-
-Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
+          const msgFile3 = path.join(tmpdir(), `opencode-commit-${crypto.randomUUID()}.txt`)
+          await writeFile(msgFile3, `${summary}\n\nCo-authored-by: ${actor} <${actor}@users.noreply.github.com>`)
+          try {
+            await $`git commit -F ${msgFile3}`
+          } finally {
+            await unlink(msgFile3).catch(() => {})
+          }
         }
         await $`git push fork HEAD:${remoteBranch}`
       }
