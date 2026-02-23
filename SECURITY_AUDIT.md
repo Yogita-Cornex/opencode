@@ -31,21 +31,24 @@
    - [MED-04 — OIDC Token Sent to api.opencode.ai](#med-04--oidc-token-sent-to-apiopencodeai)
    - [MED-06 / LOW-01 — Hardcoded Public OAuth Client IDs](#med-06--low-01--hardcoded-public-oauth-client-ids)
 5. [False Positives Investigated](#5-false-positives-investigated)
-6. [Residual Risk Summary](#6-residual-risk-summary)
+6. [Third-Pass Scan Results](#6-third-pass-scan-results)
+7. [Residual Risk Summary](#7-residual-risk-summary)
 
 ---
 
 ## 1. Executive Summary
 
-A full static-analysis security audit of the opencode repository identified **18 potential
-issues** across all severity levels. **14 were confirmed vulnerabilities**; of those, **14 were
-fixed** across three patch commits. Four issues were reviewed, classified as accepted risk due to
-architectural constraints, and documented with their rationale below.
+A full static-analysis security audit of the opencode repository conducted across **three
+successive passes** identified **18 potential issues** across all severity levels. **14 were
+confirmed vulnerabilities**; of those, **14 were fixed** across three patch commits. Four issues
+were reviewed, classified as accepted risk due to architectural constraints, and documented with
+their rationale below.
 
-A second-pass scan (focused exclusively on critical/high severity) cleared four automated scanner
-findings as false positives and uncovered one additional HIGH finding (git argument injection)
-that was missed in the first pass. See [Section 5](#5-false-positives-investigated) for the
-dismissed findings with rationale.
+- **Pass 1** (broad scan): 13 confirmed findings, all fixed.
+- **Pass 2** (critical/high focus): 4 scanner findings dismissed as false positives; 1 additional
+  HIGH finding (git argument injection) uncovered and fixed.
+- **Pass 3** (deep coverage of unanalyzed subsystems): No new critical or high vulnerabilities
+  found. See [Section 6](#6-third-pass-scan-results) for full coverage details.
 
 No dynamic testing, dependency CVE scanning, or penetration testing was performed as part of this
 audit. Those activities are recommended as follow-up.
@@ -671,7 +674,29 @@ non-issues:
 
 ---
 
-## 6. Residual Risk Summary
+## 6. Third-Pass Scan Results
+
+A targeted third pass examined subsystems not covered in the first two passes, focusing
+exclusively on critical and high severity vectors. **No new vulnerabilities were found.**
+
+The table below records each area examined, what specifically was checked, and why it was cleared.
+
+| Subsystem | Files examined | What was checked | Verdict |
+|-----------|---------------|------------------|---------|
+| **File tools** | `tool/write.ts`, `tool/edit.ts`, `tool/read.ts`, `tool/glob.ts`, `tool/grep.ts`, `tool/apply_patch.ts` | Path traversal: can AI-supplied paths escape the project root? | **Clean.** All tools normalize via `path.resolve(Instance.directory, ...)` then call `assertExternalDirectory()`, which uses `Filesystem.contains()` (relative-path `..` check). Three-layer containment is robust. |
+| **Shell tool** | `tool/bash.ts` | Remaining injection surfaces beyond the already-cleared `realpath` call | **Clean.** Tree-sitter AST parsing extracts command arguments before any shell execution; `$` tag escaping applies to all subsequent git/realpath calls. No new surfaces. |
+| **Web fetch tool** | `tool/webfetch.ts` | SSRF via AI-supplied URLs; unconstrained response sizes | **Clean.** Protocol validated to `http/https` only; response body capped at 5 MB; request timeout capped at 120 s. |
+| **Session management** | `session/index.ts`, `id/id.ts` | Session ID guessability; session fixation; cross-session data access | **Clean.** IDs generated via `crypto.randomBytes()` with a monotonic counter — cryptographically unpredictable. Sessions are database-isolated by `sessionID` foreign key. No fixation surface found. |
+| **Auth / OAuth** | `auth/index.ts`, `plugin/codex.ts` | PKCE `code_verifier` entropy; OAuth `state` CSRF validation; redirect_uri open redirect; token storage permissions | **Clean.** State parameter validated on callback. `redirect_uri` is hardcoded, not user-supplied. `auth.json` written with `0o600` permissions. PKCE is implemented. |
+| **Provider auth** | `provider/auth.ts` | Credential leakage in logs; insecure token storage | **Clean.** No credentials logged. Tokens held in-memory during OAuth flow then persisted to `auth.json` at `0o600`. |
+| **Server routes** | `server/server.ts` | Unauthenticated routes accepting dangerous input; SSE injection | **Clean.** All mutating routes sit behind the CORS + optional Basic Auth middleware. SSE stream emits structured event objects — no raw string injection surface. |
+| **Permission system** | `permission/index.ts`, `permission/next.ts` | Permission bypass by AI; TOCTOU between check and operation | **Clean.** `ctx.ask()` blocks the tool call synchronously until the user approves. No window between grant and use. Wildcard matching is pattern-only (no eval). |
+| **Worktree** | `worktree/index.ts` | Shell commands using external input; path traversal in worktree paths | **Clean.** Branch/path names are generated internally via `generateBranchName()` / `slug()` — not user-supplied. `canonical()` uses `fs.realpath()` for path normalization. |
+| **Snapshot / undo** | `snapshot/index.ts` | Path traversal in git diff operations | **Clean.** Git operations use fixed arguments; no user/AI input interpolated into snapshot paths. |
+
+---
+
+## 7. Residual Risk Summary
 
 | ID | Severity | Description | Status |
 |----|----------|-------------|--------|
@@ -699,5 +724,5 @@ non-issues:
 ---
 
 *This document reflects the state of the codebase as of commit `f15a1491c` on branch `dev`.*
-*Follow-up recommendations: dependency CVE scan (`bun audit`), dynamic testing of the OAuth flow,
-and review of MCP server trust boundaries.*
+*Three static-analysis passes completed. Follow-up recommendations: dependency CVE scan
+(`bun audit`), dynamic testing of the OAuth flow, and penetration testing of the local HTTP server.*
