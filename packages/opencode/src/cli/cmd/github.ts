@@ -1082,8 +1082,8 @@ export const GithubRunCommand = cmd({
         const branch = pr.headRefName
         const depth = Math.max(pr.commits.totalCount, 20)
 
-        await $`git fetch origin --depth=${depth} ${branch}`
-        await $`git checkout ${branch}`
+        await $`git fetch origin --depth=${depth} -- ${branch}`
+        await $`git switch -- ${branch}`
       }
 
       async function checkoutForkBranch(pr: GitHubPullRequest) {
@@ -1094,7 +1094,7 @@ export const GithubRunCommand = cmd({
         const depth = Math.max(pr.commits.totalCount, 20)
 
         await $`git remote add fork https://github.com/${pr.headRepository.nameWithOwner}.git`
-        await $`git fetch fork --depth=${depth} ${remoteBranch}`
+        await $`git fetch fork --depth=${depth} -- ${remoteBranch}`
         await $`git checkout -b ${localBranch} fork/${remoteBranch}`
         return localBranch
       }
