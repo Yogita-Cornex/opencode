@@ -48,6 +48,7 @@ export namespace Server {
   const log = Log.create({ service: "server" })
 
   let _url: URL | undefined
+  const TRUSTED_ORIGINS = new Set(["https://app.opencode.ai", "https://opencode.ai"])
   let _corsWhitelist: string[] = []
 
   export function url(): URL {
@@ -117,8 +118,7 @@ export namespace Server {
               )
                 return input
 
-              // *.opencode.ai (https only, adjust if needed)
-              if (/^https:\/\/([a-z0-9-]+\.)*opencode\.ai$/.test(input)) {
+              if (TRUSTED_ORIGINS.has(input)) {
                 return input
               }
               if (_corsWhitelist.includes(input)) {
@@ -545,10 +545,17 @@ export namespace Server {
 
           const response = await proxy(`https://app.opencode.ai${path}`, {
             ...c.req,
-            headers: {
-              ...c.req.raw.headers,
-              host: "app.opencode.ai",
-            },
+            headers: (() => {
+              const h: Record<string, string> = {}
+              c.req.raw.headers.forEach((value, key) => {
+                const lower = key.toLowerCase()
+                if (lower !== "authorization" && lower !== "cookie" && lower !== "set-cookie") {
+                  h[key] = value
+                }
+              })
+              h["host"] = "app.opencode.ai"
+              return h
+            })(),
           })
           response.headers.set(
             "Content-Security-Policy",

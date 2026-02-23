@@ -132,7 +132,7 @@ export namespace Installation {
     let cmd
     switch (method) {
       case "curl":
-        cmd = $`curl -fsSL https://opencode.ai/install | bash`.env({
+        cmd = $`curl --proto '=https' --tlsv1.2 -fsSL https://opencode.ai/install | bash`.env({
           ...process.env,
           VERSION: target,
         })

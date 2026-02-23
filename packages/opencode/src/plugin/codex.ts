@@ -184,6 +184,15 @@ const HTML_SUCCESS = `<!doctype html>
   </body>
 </html>`
 
+function htmlEncode(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 const HTML_ERROR = (error: string) => `<!doctype html>
 <html>
   <head>
@@ -227,7 +236,7 @@ const HTML_ERROR = (error: string) => `<!doctype html>
     <div class="container">
       <h1>Authorization Failed</h1>
       <p>An error occurred during authorization.</p>
-      <div class="error">${error}</div>
+      <div class="error">${htmlEncode(error)}</div>
     </div>
   </body>
 </html>`
@@ -618,7 +627,6 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
       if (input.model.providerID !== "openai") return
       output.headers.originator = "opencode"
       output.headers["User-Agent"] = `opencode/${Installation.VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`
-      output.headers.session_id = input.sessionID
     },
   }
 }

@@ -1,5 +1,7 @@
 import { $ } from "bun"
 import path from "node:path"
+import { tmpdir } from "node:os"
+import { writeFile, unlink } from "node:fs/promises"
 import { Octokit } from "@octokit/rest"
 import { graphql } from "@octokit/graphql"
 import * as core from "@actions/core"
@@ -718,9 +720,13 @@ async function pushToNewBranch(summary: string, branch: string) {
   const actor = useContext().actor
 
   await $`git add .`
-  await $`git commit -m "${summary}
-
-Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
+  const msgFile1 = path.join(tmpdir(), `opencode-commit-${Date.now()}.txt`)
+  await writeFile(msgFile1, `${summary}\n\nCo-authored-by: ${actor} <${actor}@users.noreply.github.com>`)
+  try {
+    await $`git commit -F ${msgFile1}`
+  } finally {
+    await unlink(msgFile1).catch(() => {})
+  }
   await $`git push -u origin ${branch}`
 }
 
@@ -729,9 +735,13 @@ async function pushToLocalBranch(summary: string) {
   const actor = useContext().actor
 
   await $`git add .`
-  await $`git commit -m "${summary}
-
-Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
+  const msgFile2 = path.join(tmpdir(), `opencode-commit-${Date.now()}.txt`)
+  await writeFile(msgFile2, `${summary}\n\nCo-authored-by: ${actor} <${actor}@users.noreply.github.com>`)
+  try {
+    await $`git commit -F ${msgFile2}`
+  } finally {
+    await unlink(msgFile2).catch(() => {})
+  }
   await $`git push`
 }
 
@@ -742,9 +752,13 @@ async function pushToForkBranch(summary: string, pr: GitHubPullRequest) {
   const remoteBranch = pr.headRefName
 
   await $`git add .`
-  await $`git commit -m "${summary}
-
-Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
+  const msgFile3 = path.join(tmpdir(), `opencode-commit-${Date.now()}.txt`)
+  await writeFile(msgFile3, `${summary}\n\nCo-authored-by: ${actor} <${actor}@users.noreply.github.com>`)
+  try {
+    await $`git commit -F ${msgFile3}`
+  } finally {
+    await unlink(msgFile3).catch(() => {})
+  }
   await $`git push fork HEAD:${remoteBranch}`
 }
 

@@ -38,7 +38,7 @@ export namespace BunProc {
         ? result.stderr
         : await readableStreamToText(result.stderr)
       : undefined
-    log.info("done", {
+    log.debug("done", {
       code,
       stdout,
       stderr,

@@ -61,6 +61,10 @@ export namespace Plugin {
         const lastAtIndex = plugin.lastIndexOf("@")
         const pkg = lastAtIndex > 0 ? plugin.substring(0, lastAtIndex) : plugin
         const version = lastAtIndex > 0 ? plugin.substring(lastAtIndex + 1) : "latest"
+        log.warn("installing third-party plugin from npm — this package will run with full process permissions", {
+          package: pkg,
+          version,
+        })
         plugin = await BunProc.install(pkg, version).catch((err) => {
           const cause = err instanceof Error ? err.cause : err
           const detail = cause instanceof Error ? cause.message : String(cause ?? err)

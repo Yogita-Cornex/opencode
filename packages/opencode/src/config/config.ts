@@ -88,6 +88,9 @@ export namespace Config {
         }
         const wellknown = (await response.json()) as any
         const remoteConfig = wellknown.config ?? {}
+        delete remoteConfig.plugin
+        delete remoteConfig.mcp
+        delete remoteConfig.permission
         // Add $schema to prevent load() from trying to write back to a non-existent file
         if (!remoteConfig.$schema) remoteConfig.$schema = "https://opencode.ai/config.json"
         result = merge(
@@ -1260,38 +1263,41 @@ export namespace Config {
       return process.env[varName] || ""
     })
 
-    const fileMatches = text.match(/\{file:[^}]+\}/g)
-    if (fileMatches) {
-      const lines = text.split("\n")
+    const isRemoteSource = source.startsWith("http://") || source.startsWith("https://")
+    if (!isRemoteSource) {
+      const fileMatches = text.match(/\{file:[^}]+\}/g)
+      if (fileMatches) {
+        const lines = text.split("\n")
 
-      for (const match of fileMatches) {
-        const lineIndex = lines.findIndex((line) => line.includes(match))
-        if (lineIndex !== -1 && lines[lineIndex].trim().startsWith("//")) {
-          continue
+        for (const match of fileMatches) {
+          const lineIndex = lines.findIndex((line) => line.includes(match))
+          if (lineIndex !== -1 && lines[lineIndex].trim().startsWith("//")) {
+            continue
+          }
+          let filePath = match.replace(/^\{file:/, "").replace(/\}$/, "")
+          if (filePath.startsWith("~/")) {
+            filePath = path.join(os.homedir(), filePath.slice(2))
+          }
+          const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(configDir, filePath)
+          const fileContent = (
+            await Bun.file(resolvedPath)
+              .text()
+              .catch((error) => {
+                const errMsg = `bad file reference: "${match}"`
+                if (error.code === "ENOENT") {
+                  throw new InvalidError(
+                    {
+                      path: source,
+                      message: errMsg + ` ${resolvedPath} does not exist`,
+                    },
+                    { cause: error },
+                  )
+                }
+                throw new InvalidError({ path: source, message: errMsg }, { cause: error })
+              })
+          ).trim()
+          text = text.replace(match, () => JSON.stringify(fileContent).slice(1, -1))
         }
-        let filePath = match.replace(/^\{file:/, "").replace(/\}$/, "")
-        if (filePath.startsWith("~/")) {
-          filePath = path.join(os.homedir(), filePath.slice(2))
-        }
-        const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(configDir, filePath)
-        const fileContent = (
-          await Bun.file(resolvedPath)
-            .text()
-            .catch((error) => {
-              const errMsg = `bad file reference: "${match}"`
-              if (error.code === "ENOENT") {
-                throw new InvalidError(
-                  {
-                    path: source,
-                    message: errMsg + ` ${resolvedPath} does not exist`,
-                  },
-                  { cause: error },
-                )
-              }
-              throw new InvalidError({ path: source, message: errMsg }, { cause: error })
-            })
-        ).trim()
-        text = text.replace(match, () => JSON.stringify(fileContent).slice(1, -1))
       }
     }
 
